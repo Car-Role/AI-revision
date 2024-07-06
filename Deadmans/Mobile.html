@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadman's Volley (Mobile)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            touch-action: none;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        #gameCanvas {
+            border: 2px solid #333;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 100%;
+            max-height: 80vh;
+        }
+        #replayButton {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #replayButton:hover {
+            background-color: #45a049;
+        }
+        #instructions {
+            margin-top: 10px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Deadman's Volley (Mobile)</h1>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <button id="replayButton">Replay</button>
+    <div id="instructions">
+        <p>Tap and hold left/right side to move</p>
+        <p>Tap the screen for shield (0.5s duration)</p>
+        <p>Reflect the ball to damage the enemy. Avoid getting hit!</p>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const replayButton = document.getElementById('replayButton');
+
+        // Adjust canvas size based on device orientation
+        function resizeCanvas() {
+            const aspectRatio = 2 / 3;
+            let canvasWidth = Math.min(window.innerWidth, window.innerHeight * aspectRatio);
+            let canvasHeight = canvasWidth / aspectRatio;
+
+            canvas.style.width = `${canvasWidth}px`;
+            canvas.style.height = `${canvasHeight}px`;
+            canvas.width = canvasWidth * devicePixelRatio;
+            canvas.height = canvasHeight * devicePixelRatio;
+            ctx.scale(devicePixelRatio, devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game objects
+        const ball = {
+            x: 200,
+            y: 300,
+            radius: 10,
+            speed: 3.5,
+            initialSpeed: 3.5,
+            target: 'player',
+            paused: false,
+            pauseDuration: 60,
+            pauseTimer: 0
+        };
+
+        const player = {
+            x: 170,
+            y: 550,
+            width: 60,
+            height: 20,
+            dy: 5,
+            maxHealth: 3,
+            health: 3,
+            barrier: {
+                active: false,
+                duration: 30,
+                timer: 0
+            }
+        };
+
+        const enemies = [
+            { width: 60, height: 20, maxHealth: 3, reflectProb: 0.7 },
+            { width: 90, height: 30, maxHealth: 5, reflectProb: 0.8 },
+            { width: 120, height: 40, maxHealth: 7, reflectProb: 0.9 }
+        ];
+
+        let currentEnemy = {
+            x: 170,
+            y: 30,
+            ...enemies[0],
+            health: enemies[0].maxHealth
+        };
+
+        let currentStage = 0;
+
+        // Effect objects
+        const reflectionEffect = {
+            active: false,
+            duration: 30,
+            timer: 0
+        };
+
+        const damageEffect = {
+            active: false,
+            duration: 30,
+            timer: 0
+        };
+
+        // Game state
+        let gameOver = false;
+        let moveLeft = false;
+        let moveRight = false;
+
+        // Touch event listeners
+        canvas.addEventListener('touchstart', handleTouchStart);
+        canvas.addEventListener('touchmove', handleTouchMove);
+        canvas.addEventListener('touchend', handleTouchEnd);
+        replayButton.addEventListener('click', resetGame);
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            
+            if (x < rect.width / 2) {
+                moveLeft = true;
+            } else {
+                moveRight = true;
+            }
+
+            if (!player.barrier.active) {
+                player.barrier.active = true;
+                player.barrier.timer = player.barrier.duration;
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            moveLeft = false;
+            moveRight = false;
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.paused ? 'orange' : 'red';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            if (player.barrier.active) {
+                ctx.strokeStyle = 'cyan';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(player.x - 5, player.y - 5, player.width + 10, player.height + 10);
+            }
+        }
+
+        function drawEnemy() {
+            ctx.fillStyle = currentStage === 2 ? 'purple' : 'green';
+            ctx.fillRect(currentEnemy.x, currentEnemy.y, currentEnemy.width, currentEnemy.height);
+
+            if (reflectionEffect.active) {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                ctx.beginPath();
+                ctx.arc(currentEnemy.x + currentEnemy.width / 2, currentEnemy.y + currentEnemy.height / 2, 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (damageEffect.active) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                ctx.beginPath();
+                ctx.moveTo(currentEnemy.x, currentEnemy.y);
+                ctx.lineTo(currentEnemy.x + currentEnemy.width, currentEnemy.y);
+                ctx.lineTo(currentEnemy.x + currentEnemy.width / 2, currentEnemy.y + currentEnemy.height);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        function drawHealthBars() {
+            // Player health bar
+            ctx.fillStyle = 'lightgray';
+            ctx.fillRect(10, canvas.height - 30, 100, 20);
+            ctx.fillStyle = 'red';
+            ctx.fillRect(10, canvas.height - 30, (player.health / player.maxHealth) * 100, 20);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(10, canvas.height - 30, 100, 20);
+
+            // Enemy health bar
+            ctx.fillStyle = 'lightgray';
+            ctx.fillRect(10, 10, 100, 20);
+            ctx.fillStyle = 'red';
+            ctx.fillRect(10, 10, (currentEnemy.health / currentEnemy.maxHealth) * 100, 20);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(10, 10, 100, 20);
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            // Player movement
+            if (moveLeft && player.x > 0) player.x -= player.dy;
+            if (moveRight && player.x + player.width < canvas.width) player.x += player.dy;
+
+            // Ball movement
+            if (ball.paused) {
+                ball.pauseTimer--;
+                if (ball.pauseTimer <= 0) {
+                    ball.paused = false;
+                }
+            } else {
+                let targetX, targetY;
+                if (ball.target === 'player') {
+                    targetX = player.x + player.width / 2;
+                    targetY = player.y + player.height / 2;
+                } else {
+                    targetX = currentEnemy.x + currentEnemy.width / 2;
+                    targetY = currentEnemy.y + currentEnemy.height / 2;
+                }
+
+                let angle = Math.atan2(targetY - ball.y, targetX - ball.x);
+                ball.x += Math.cos(angle) * ball.speed;
+                ball.y += Math.sin(angle) * ball.speed;
+
+                // Ball collision with sides
+                if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+                    ball.x = Math.max(ball.radius, Math.min(canvas.width - ball.radius, ball.x));
+                }
+
+                // Ball collision with player
+                if (ball.y + ball.radius > player.y &&
+                    ball.x > player.x &&
+                    ball.x < player.x + player.width) {
+                    if (player.barrier.active) {
+                        ball.speed *= 1.1;
+                        ball.target = 'enemy';
+                    } else {
+                        player.health--;
+                        resetBall();
+                    }
+                }
+
+                // Ball collision with enemy
+                if (ball.y - ball.radius < currentEnemy.y + currentEnemy.height &&
+                    ball.x > currentEnemy.x &&
+                    ball.x < currentEnemy.x + currentEnemy.width) {
+                    if (Math.random() < currentEnemy.reflectProb) {
+                        ball.speed *= 1.1;
+                        ball.target = 'player';
+                        reflectionEffect.active = true;
+                        reflectionEffect.timer = reflectionEffect.duration;
+                    } else {
+                        currentEnemy.health--;
+                        resetBall();
+                        damageEffect.active = true;
+                        damageEffect.timer = damageEffect.duration;
+                    }
+                }
+            }
+
+            // Barrier logic
+            if (player.barrier.active) {
+                player.barrier.timer--;
+                if (player.barrier.timer <= 0) {
+                    player.barrier.active = false;
+                }
+            }
+
+            // Update effects
+            if (reflectionEffect.active) {
+                reflectionEffect.timer--;
+                if (reflectionEffect.timer <= 0) {
+                    reflectionEffect.active = false;
+                }
+            }
+
+            if (damageEffect.active) {
+                damageEffect.timer--;
+                if (damageEffect.timer <= 0) {
+                    damageEffect.active = false;
+                }
+            }
+
+            // Check game over conditions
+            if (player.health <= 0) {
+                gameOver = true;
+                replayButton.style.display = 'block';
+            }
+
+            // Check for stage clear
+            if (currentEnemy.health <= 0) {
+                currentStage++;
+                if (currentStage < enemies.length) {
+                    currentEnemy = {
+                        x: 170,
+                        y: 30,
+                        ...enemies[currentStage],
+                        health: enemies[currentStage].maxHealth
+                    };
+                    resetBall();
+                } else {
+                    gameOver = true;
+                    replayButton.style.display = 'block';
+                }
+            }
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speed = ball.initialSpeed;
+            ball.paused = true;
+            ball.pauseTimer = ball.pauseDuration;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBall();
+            drawPlayer();
+            drawEnemy();
+            drawHealthBars();
+
+            // Draw stage number
+            ctx.font = '20px Arial';
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Stage: ${currentStage + 1}`, canvas.width / 2, canvas.height / 2);
+
+            if (gameOver) {
+                ctx.font = '30px Arial';
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                if (currentStage >= enemies.length) {
+                    ctx.fillText('Congratulations! You Win!', canvas.width / 2, canvas.height / 2);
+                } else {
+                    ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2);
+                }
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resetGame() {
+            // Reset game objects
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speed = ball.initialSpeed;
+            ball.target = 'player';
+            ball.paused = true;
+            ball.pauseTimer = ball.pauseDuration;
+
+            player.x = 170;
+            player.y = 550;
+            player.health = player.maxHealth;
+            player.barrier.active = false;
+            player.barrier.timer = 0;
+
+            currentStage = 0;
+            currentEnemy = {
+                x: 170,
+                y: 30,
+                ...enemies[currentStage],
+                health: enemies[currentStage].maxHealth
+            };
+
+            // Reset effects
+            reflectionEffect.active = false;
+            reflectionEffect.timer = 0;
+            damageEffect.active = false;
+            damageEffect.timer = 0;
+
+            // Reset game state
+            gameOver = false;
+            replayButton.style.display = 'none';
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
