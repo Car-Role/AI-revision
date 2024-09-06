@@ -1,25 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Deadmans Project</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadman's Volley</title>
     <style>
-        /* Basic button styling (optional) */
-        button {
-            padding: 10px 20px;
-            margin: 10px;
-            background-color: #4CAF50; /* Example color */
+        body {
+            font-family: 'Poppins', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 3rem;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .game-versions {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 40px;
+        }
+        .version-card {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            padding: 30px;
+            width: 300px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease-in-out;
+        }
+        .version-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+        .version-card h2 {
+            color: #3498db;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+        }
+        .version-card p {
+            color: #666;
+            font-size: 1rem;
+            margin-bottom: 25px;
+        }
+        .play-button {
+            display: inline-block;
+            background-color: #2ecc71;
             color: white;
-            border: none;
-            cursor: pointer;
+            padding: 12px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.4);
+        }
+        .play-button:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(46, 204, 113, 0.6);
         }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-
-    <h1>Welcome to the Deadmans Project</h1>
-
-    <button onclick="window.location.href='Deadmans/Mobile.html'">Mobile Version</button>
-    <button onclick="window.location.href='Deadmans/Desktop.html'">Desktop Version</button>
-
+    <div class="container">
+        <h1>Deadman's Volley</h1>
+        <div class="game-versions">
+            <div class="version-card">
+                <h2>Desktop Version</h2>
+                <p>Experience the full thrill of Deadman's Volley on your computer with enhanced graphics and controls.</p>
+                <a href="deadmans/Desktop.HTML" class="play-button">Play Desktop</a>
+            </div>
+            <div class="version-card">
+                <h2>Mobile Version</h2>
+                <p>Take the excitement on the go with our mobile-optimized version, perfect for touch screens.</p>
+                <a href="deadmans/Mobile.html" class="play-button">Play Mobile</a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

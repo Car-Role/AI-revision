@@ -97,7 +97,58 @@
             text-align: center;
             z-index: 10;
         }
+        #settingsMenu {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            max-width: 800px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        #settingsMenu h2 {
+            color: #fff;
+            margin-top: 0;
+        }
+        #settingsMenu label {
+            color: #ddd;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        #settingsMenu input[type="range"] {
+            width: 200px;
+            margin-right: 20px;
+        }
+        #settingsMenu select {
+            margin-right: 20px;
+        }
+        #multiplayerControls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #multiplayerControls input[type="text"] {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        #multiplayerControls button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #multiplayerControls button:hover {
+            background-color: #45a049;
+        }
     </style>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
 <body>
     <h1>Deadman's Volley</h1>
@@ -127,6 +178,29 @@
         <p>Reflect the ball to damage the enemy. Avoid getting hit!</p>
         <p>Defeat 3 stages of enemies, with the final being a boss!</p>
     </div>
+    <div id="settingsMenu">
+        <h2>Settings</h2>
+        <label for="soundVolume">Sound Volume:</label>
+        <input type="range" id="soundVolume" min="0" max="100" value="50">
+        
+        <label for="controls">Controls:</label>
+        <select id="controls">
+            <option value="arrows">Arrow keys</option>
+            <option value="wasd">WASD</option>
+        </select>
+        
+        <label for="graphicsQuality">Graphics Quality:</label>
+        <select id="graphicsQuality">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+        </select>
+    </div>
+    <div id="multiplayerControls">
+        <input type="text" id="joinCode" placeholder="Enter join code">
+        <button id="hostButton">Host Game</button>
+        <button id="joinButton">Join Game</button>
+    </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -136,6 +210,7 @@
         const healthIncreasePanel = document.getElementById('healthIncrease');
         const damageIncreasePanel = document.getElementById('damageIncrease');
         const stageClearText = document.getElementById('stageClearText');
+        const settingsMenu = document.getElementById('settingsMenu');
 
         // Add these variables at the beginning of your script
         let lastTime = 0;
@@ -539,6 +614,61 @@
 
             // Resume gameplay
             gameLoop(performance.now());
+        }
+
+        // PeerJS setup
+        let peer;
+        let conn;
+        const hostButton = document.getElementById('hostButton');
+        const joinButton = document.getElementById('joinButton');
+        const joinCode = document.getElementById('joinCode');
+
+        hostButton.addEventListener('click', hostGame);
+        joinButton.addEventListener('click', joinGame);
+
+        function hostGame() {
+            peer = new Peer();
+            peer.on('open', (id) => {
+                alert(`Your game code is: ${id}`);
+                peer.on('connection', (connection) => {
+                    conn = connection;
+                    setupDataHandling();
+                });
+            });
+        }
+
+        function joinGame() {
+            const code = joinCode.value;
+            peer = new Peer();
+            peer.on('open', () => {
+                conn = peer.connect(code);
+                conn.on('open', () => {
+                    setupDataHandling();
+                });
+            });
+        }
+
+        function setupDataHandling() {
+            conn.on('data', (data) => {
+                // Handle incoming data (e.g., opponent's position)
+                if (data.type === 'position') {
+                    currentEnemy.x = data.x;
+                    currentEnemy.y = data.y;
+                }
+            });
+        }
+
+        // Modify the update function to send player position
+        function update(deltaTime) {
+            // ... existing update logic ...
+
+            if (conn) {
+                conn.send({
+                    type: 'position',
+                    x: player.x,
+                    y: player.y
+                });
+            }
         }
 
         // Start the game loop
